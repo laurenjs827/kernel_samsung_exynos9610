@@ -27,6 +27,7 @@
 
 #include "thermal_core.h"
 
+#define TEMP0_LAG			(0x0)
 #define TEMP0_TH			(0x4)
 #define TEMP0_RST_TH			(0x8)
 #define TEMP0_CFG			(0xC)
@@ -105,7 +106,58 @@ static inline int hi3660_thermal_step_to_temp(int step)
 	return HI3660_TEMP_BASE + step * HI3660_TEMP_STEP;
 }
 
-static inline int hi3660_thermal_temp_to_step(int temp)
+static inline void hisi_thermal_set_lag(void __iomem *addr, int value)
+{
+	writel(value, addr + TEMP0_LAG);
+}
+
+static inline void hisi_thermal_alarm_clear(void __iomem *addr, int value)
+{
+	writel(value, addr + TEMP0_INT_CLR);
+}
+
+static inline void hisi_thermal_alarm_enable(void __iomem *addr, int value)
+{
+	writel(value, addr + TEMP0_INT_EN);
+}
+
+static inline void hisi_thermal_alarm_set(void __iomem *addr, int temp)
+{
+	writel(hisi_thermal_temp_to_step(temp) | 0x0FFFFFF00, addr + TEMP0_TH);
+}
+
+static inline void hisi_thermal_reset_set(void __iomem *addr, int temp)
+{
+	writel(hisi_thermal_temp_to_step(temp), addr + TEMP0_RST_TH);
+}
+
+static inline void hisi_thermal_reset_enable(void __iomem *addr, int value)
+{
+	writel(value, addr + TEMP0_RST_MSK);
+}
+
+static inline void hisi_thermal_enable(void __iomem *addr, int value)
+{
+	writel(value, addr + TEMP0_EN);
+}
+
+static inline void hisi_thermal_sensor_select(void __iomem *addr, int sensor)
+{
+	writel((sensor << 12), addr + TEMP0_CFG);
+}
+
+static inline int hisi_thermal_get_temperature(void __iomem *addr)
+{
+	return hisi_thermal_step_to_temp(readl(addr + TEMP0_VALUE));
+}
+
+static inline void hisi_thermal_hdak_set(void __iomem *addr, int value)
+{
+	writel(value, addr + TEMP0_CFG);
+}
+
+static long hisi_thermal_get_sensor_temp(struct hisi_thermal_data *data,
+					 struct hisi_thermal_sensor *sensor)
 {
 	return DIV_ROUND_UP(temp - HI3660_TEMP_BASE, HI3660_TEMP_STEP);
 }
@@ -147,36 +199,27 @@ static inline void hi6220_thermal_set_lag(void __iomem *addr, int value)
 			addr + HI6220_TEMP0_LAG);
 }
 
-static inline void hi6220_thermal_alarm_clear(void __iomem *addr, int value)
-{
-	writel(value, addr + HI6220_TEMP0_INT_CLR);
 }
 
-static inline void hi6220_thermal_alarm_enable(void __iomem *addr, int value)
-{
-	writel(value, addr + HI6220_TEMP0_INT_EN);
-}
+	/* disable interrupt */
+	hisi_thermal_alarm_enable(data->regs, 0);
+	hisi_thermal_alarm_clear(data->regs, 1);
 
-static inline void hi6220_thermal_alarm_set(void __iomem *addr, int temp)
-{
-	writel(hi6220_thermal_temp_to_step(temp) | 0x0FFFFFF00,
-	       addr + HI6220_TEMP0_TH);
-}
+	/* disable module firstly */
+	hisi_thermal_enable(data->regs, 0);
 
-static inline void hi6220_thermal_reset_set(void __iomem *addr, int temp)
-{
-	writel(hi6220_thermal_temp_to_step(temp), addr + HI6220_TEMP0_RST_TH);
-}
+	/* select sensor id */
+	hisi_thermal_sensor_select(data->regs, sensor->id);
+
+	/* enable module */
+	hisi_thermal_enable(data->regs, 1);
 
 static inline void hi6220_thermal_reset_enable(void __iomem *addr, int value)
 {
 	writel(value, addr + HI6220_TEMP0_RST_MSK);
 }
 
-static inline void hi6220_thermal_enable(void __iomem *addr, int value)
-{
-	writel(value, addr + HI6220_TEMP0_EN);
-}
+	val = hisi_thermal_get_temperature(data->regs);
 
 static inline int hi6220_thermal_get_temperature(void __iomem *addr)
 {
@@ -256,72 +299,27 @@ static inline void hi6220_thermal_hdak_set(void __iomem *addr, int value)
 
 	sensor = &data->sensors;
 
-static int hi3660_thermal_irq_handler(struct hisi_thermal_data *data)
-{
-	hi3660_thermal_alarm_clear(data->regs, data->sensor.id, 1);
-	return 0;
-}
-
-static int hi6220_thermal_get_temp(struct hisi_thermal_data *data)
-{
-	return hi6220_thermal_get_temperature(data->regs);
-}
-
-static int hi3660_thermal_get_temp(struct hisi_thermal_data *data)
-{
-	return hi3660_thermal_get_temperature(data->regs, data->sensor.id);
-}
-
-static int hi6220_thermal_disable_sensor(struct hisi_thermal_data *data)
-{
-	/* disable sensor module */
-	hi6220_thermal_enable(data->regs, 0);
-	hi6220_thermal_alarm_enable(data->regs, 0);
-	hi6220_thermal_reset_enable(data->regs, 0);
-
-	clk_disable_unprepare(data->clk);
-
-	return 0;
-}
-
-static int hi3660_thermal_disable_sensor(struct hisi_thermal_data *data)
-{
-	/* disable sensor module */
-	hi3660_thermal_alarm_enable(data->regs, data->sensor.id, 0);
-	return 0;
-}
-
-static int hi6220_thermal_enable_sensor(struct hisi_thermal_data *data)
-{
-	struct hisi_thermal_sensor *sensor = &data->sensor;
-	int ret;
-
-	/* enable clock for tsensor */
-	ret = clk_prepare_enable(data->clk);
-	if (ret)
-		return ret;
+	/* setting the hdak time */
+	hisi_thermal_hdak_set(data->regs, 0);
 
 	/* disable module firstly */
-	hi6220_thermal_reset_enable(data->regs, 0);
-	hi6220_thermal_enable(data->regs, 0);
+	hisi_thermal_reset_enable(data->regs, 0);
+	hisi_thermal_enable(data->regs, 0);
 
 	/* select sensor id */
-	hi6220_thermal_sensor_select(data->regs, sensor->id);
-
-	/* setting the hdak time */
-	hi6220_thermal_hdak_set(data->regs, 0);
-
-	/* setting lag value between current temp and the threshold */
-	hi6220_thermal_set_lag(data->regs, HI6220_TEMP_LAG);
+	hisi_thermal_sensor_select(data->regs, sensor->id);
 
 	/* enable for interrupt */
-	hi6220_thermal_alarm_set(data->regs, sensor->thres_temp);
+	hisi_thermal_alarm_set(data->regs, sensor->thres_temp);
 
-	hi6220_thermal_reset_set(data->regs, HI6220_TEMP_RESET);
+	hisi_thermal_reset_set(data->regs, HISI_TEMP_RESET);
 
 	/* enable module */
-	hi6220_thermal_reset_enable(data->regs, 1);
-	hi6220_thermal_enable(data->regs, 1);
+	hisi_thermal_reset_enable(data->regs, 1);
+	hisi_thermal_enable(data->regs, 1);
+
+	hisi_thermal_alarm_clear(data->regs, 0);
+	hisi_thermal_alarm_enable(data->regs, 1);
 
 	hi6220_thermal_alarm_clear(data->regs, 0);
 	hi6220_thermal_alarm_enable(data->regs, 1);
@@ -334,8 +332,10 @@ static int hi3660_thermal_enable_sensor(struct hisi_thermal_data *data)
 	unsigned int value;
 	struct hisi_thermal_sensor *sensor = &data->sensor;
 
-	/* disable interrupt */
-	hi3660_thermal_alarm_enable(data->regs, sensor->id, 0);
+	/* disable sensor module */
+	hisi_thermal_enable(data->regs, 0);
+	hisi_thermal_alarm_enable(data->regs, 0);
+	hisi_thermal_reset_enable(data->regs, 0);
 
 	/* setting lag value between current temp and the threshold */
 	hi3660_thermal_set_lag(data->regs, sensor->id, HI3660_TEMP_LAG);
