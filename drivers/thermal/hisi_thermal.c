@@ -414,12 +414,10 @@ static const struct thermal_zone_of_device_ops hisi_of_thermal_ops = {
 static irqreturn_t hisi_thermal_alarm_irq_thread(int irq, void *dev)
 {
 	struct hisi_thermal_data *data = dev;
-	struct hisi_thermal_sensor *sensor;
+	struct hisi_thermal_sensor *sensor = &data->sensors;
 
-	mutex_lock(&data->thermal_lock);
-	sensor = &data->sensors;
-
-	hisi_thermal_get_temp(data, &temp);
+	dev_crit(&data->pdev->dev, "THERMAL ALARM: T > %d\n",
+		 sensor->thres_temp);
 
 	thermal_zone_device_update(data->sensors.tzd,
 				   THERMAL_EVENT_UNSPECIFIED);
