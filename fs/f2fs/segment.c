@@ -4040,7 +4040,6 @@ static int build_sit_entries(struct f2fs_sb_info *sbi)
 	unsigned int i, start, end;
 	unsigned int readed, start_blk = 0;
 	int err = 0;
-	block_t total_node_blocks = 0;
 
 	do {
 		readed = f2fs_ra_meta_pages(sbi, start_blk, BIO_MAX_PAGES,
@@ -4062,11 +4061,8 @@ static int build_sit_entries(struct f2fs_sb_info *sbi)
 			f2fs_put_page(page, 1);
 
 			err = check_block_count(sbi, start, &sit);
-			if (err) {
-				print_block_data(sbi->sb, current_sit_addr(sbi, start),
-						page_address(page), 0,  F2FS_BLKSIZE);
+			if (err)
 				return err;
-			}
 			seg_info_from_raw_sit(se, &sit);
 			if (IS_NODESEG(se->type))
 				total_node_blocks += se->valid_blocks;
@@ -4113,11 +4109,8 @@ static int build_sit_entries(struct f2fs_sb_info *sbi)
 			total_node_blocks -= old_valid_blocks;
 
 		err = check_block_count(sbi, start, &sit);
-		if (err) {
-			print_block_data(sbi->sb, 0, (void *)&sit, 0,
-					 sizeof(struct f2fs_sit_entry));
+		if (err)
 			break;
-		}
 		seg_info_from_raw_sit(se, &sit);
 		if (IS_NODESEG(se->type))
 			total_node_blocks += se->valid_blocks;
@@ -4139,13 +4132,6 @@ static int build_sit_entries(struct f2fs_sb_info *sbi)
 		}
 	}
 	up_read(&curseg->journal_rwsem);
-
-	if (!err && total_node_blocks != valid_node_count(sbi)) {
-		f2fs_msg(sbi->sb, KERN_ERR,
-			"SIT is corrupted node# %u vs %u",
-			total_node_blocks, valid_node_count(sbi));
-		set_sbi_flag(sbi, SBI_NEED_FSCK);
-		err = -EINVAL;
 	}
 
 	return err;
