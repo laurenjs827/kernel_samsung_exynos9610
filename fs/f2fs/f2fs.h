@@ -1142,7 +1142,6 @@ struct f2fs_io_info {
 	int need_lock;		/* indicate we need to lock cp_rwsem */
 	bool in_list;		/* indicate fio is in io_list */
 	bool is_meta;		/* indicate borrow meta inode mapping or not */
-	bool retry;		/* need to reallocate block address */
 	enum iostat_type io_type;	/* io type */
 	struct writeback_control *io_wbc; /* writeback control */
 	unsigned char version;		/* version of the node */

@@ -667,10 +667,13 @@ static inline void verify_block_addr(struct f2fs_io_info *fio, block_t blk_addr)
 {
 	struct f2fs_sb_info *sbi = fio->sbi;
 
-	if (__is_meta_io(fio))
-		verify_blkaddr(sbi, blk_addr, META_GENERIC);
+	if (PAGE_TYPE_OF_BIO(fio->type) == META &&
+				(!is_read_io(fio->op) || fio->is_meta))
+		BUG_ON(blk_addr < SEG0_BLKADDR(sbi) ||
+				blk_addr >= MAIN_BLKADDR(sbi));
 	else
-		verify_blkaddr(sbi, blk_addr, DATA_GENERIC);
+		BUG_ON(blk_addr < MAIN_BLKADDR(sbi) ||
+				blk_addr >= MAX_BLKADDR(sbi));
 }
 
 /*
