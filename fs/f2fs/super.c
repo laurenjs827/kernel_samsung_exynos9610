@@ -2663,20 +2663,16 @@ static int sanity_check_raw_super(struct f2fs_sb_info *sbi,
 		return 1;
 	}
 
-	if (secs_per_zone > total_sections || !secs_per_zone) {
+	if (secs_per_zone > total_sections) {
 		f2fs_msg(sb, KERN_INFO,
-			"Wrong secs_per_zone / total_sections (%u, %u)",
+			"Wrong secs_per_zone (%u > %u)",
 			secs_per_zone, total_sections);
 		return 1;
 	}
-	if (le32_to_cpu(raw_super->extension_count) > F2FS_MAX_EXTENSION ||
-			raw_super->hot_ext_count > F2FS_MAX_EXTENSION ||
-			(le32_to_cpu(raw_super->extension_count) +
-			raw_super->hot_ext_count) > F2FS_MAX_EXTENSION) {
+	if (le32_to_cpu(raw_super->extension_count) > F2FS_MAX_EXTENSION) {
 		f2fs_msg(sb, KERN_INFO,
-			"Corrupted extension count (%u + %u > %u)",
+			"Corrupted extension count (%u > %u)",
 			le32_to_cpu(raw_super->extension_count),
-			raw_super->hot_ext_count,
 			F2FS_MAX_EXTENSION);
 		return 1;
 	}
