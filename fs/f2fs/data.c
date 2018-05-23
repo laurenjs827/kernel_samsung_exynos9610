@@ -595,7 +595,7 @@ next:
 		spin_unlock(&io->io_lock);
 	}
 
-	if (fio->old_blkaddr != NEW_ADDR)
+	if (is_valid_blkaddr(fio->old_blkaddr))
 		verify_block_addr(fio, fio->old_blkaddr);
 	verify_block_addr(fio, fio->new_blkaddr);
 
@@ -1187,21 +1187,7 @@ next_dnode:
 next_block:
 	blkaddr = datablock_addr(dn.inode, dn.node_page, dn.ofs_in_node);
 
-	if (__is_valid_data_blkaddr(blkaddr) &&
-		!f2fs_is_valid_blkaddr(sbi, blkaddr, DATA_GENERIC)) {
-		err = -EFAULT;
-		goto sync_out;
-	}
-
-	if (is_valid_data_blkaddr(sbi, blkaddr)) {
-		/* use out-place-update for driect IO under LFS mode */
-		if (test_opt(sbi, LFS) && create &&
-				flag == F2FS_GET_BLOCK_DIO) {
-			err = __allocate_data_block(&dn, map->m_seg_type);
-			if (!err)
-				set_inode_flag(inode, FI_APPEND_WRITE);
-		}
-	} else {
+	if (!is_valid_blkaddr(blkaddr)) {
 		if (create) {
 			if (unlikely(f2fs_cp_error(sbi))) {
 				err = -EIO;
@@ -1857,53 +1843,7 @@ static inline bool check_inplace_update_policy(struct inode *inode,
 	return false;
 }
 
-bool f2fs_should_update_inplace(struct inode *inode, struct f2fs_io_info *fio)
-{
-	if (f2fs_is_pinned_file(inode))
-		return true;
-
-	/* if this is cold file, we should overwrite to avoid fragmentation */
-	if (file_is_cold(inode))
-		return true;
-
-	return check_inplace_update_policy(inode, fio);
-}
-
-bool f2fs_should_update_outplace(struct inode *inode, struct f2fs_io_info *fio)
-{
-	struct f2fs_sb_info *sbi = F2FS_I_SB(inode);
-
-	if (test_opt(sbi, LFS))
-		return true;
-	if (S_ISDIR(inode->i_mode))
-		return true;
-	if (IS_NOQUOTA(inode))
-		return true;
-	if (f2fs_is_atomic_file(inode))
-		return true;
-	if (fio) {
-		if (is_cold_data(fio->page))
-			return true;
-		if (IS_ATOMIC_WRITTEN_PAGE(fio->page))
-			return true;
-		if (unlikely(is_sbi_flag_set(sbi, SBI_CP_DISABLED) &&
-			f2fs_is_checkpointed_data(sbi, fio->old_blkaddr)))
-			return true;
-	}
-	return false;
-}
-
-static inline bool need_inplace_update(struct f2fs_io_info *fio)
-{
-	struct inode *inode = fio->page->mapping->host;
-
-	if (f2fs_should_update_outplace(inode, fio))
-		return false;
-
-	return f2fs_should_update_inplace(inode, fio);
-}
-
-int f2fs_do_write_data_page(struct f2fs_io_info *fio)
+int do_write_data_page(struct f2fs_io_info *fio)
 {
 	struct page *page = fio->page;
 	struct inode *inode = page->mapping->host;
@@ -1918,13 +1858,11 @@ int f2fs_do_write_data_page(struct f2fs_io_info *fio)
 			f2fs_lookup_extent_cache(inode, page->index, &ei)) {
 		fio->old_blkaddr = ei.blk + page->index - ei.fofs;
 
-		if (!f2fs_is_valid_blkaddr(fio->sbi, fio->old_blkaddr,
-							DATA_GENERIC))
-			return -EFAULT;
-
-		ipu_force = true;
-		fio->need_lock = LOCK_DONE;
-		goto got_it;
+		if (is_valid_blkaddr(fio->old_blkaddr)) {
+			ipu_force = true;
+			fio->need_lock = LOCK_DONE;
+			goto got_it;
+		}
 	}
 
 	/* Deadlock due to between page->lock and f2fs_lock_op */
@@ -1962,7 +1900,7 @@ got_it:
 	 * If current allocation needs SSR,
 	 * it had better in-place writes for updated data.
 	 */
-	if (ipu_force || (is_valid_data_blkaddr(fio->sbi, fio->old_blkaddr) &&
+	if (ipu_force || (is_valid_blkaddr(fio->old_blkaddr) &&
 					need_inplace_update(fio))) {
 		err = encrypt_one_page(fio);
 		if (err)

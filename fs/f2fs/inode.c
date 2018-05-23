@@ -73,11 +73,9 @@ static int __written_first_block(struct f2fs_sb_info *sbi,
 {
 	block_t addr = le32_to_cpu(ri->i_addr[offset_in_addr(ri)]);
 
-	if (!__is_valid_data_blkaddr(addr))
-		return 1;
-	if (!f2fs_is_valid_blkaddr(sbi, addr, DATA_GENERIC))
-		return -EFAULT;
-	return 0;
+	if (is_valid_blkaddr(addr))
+		return true;
+	return false;
 }
 
 static void __set_inode_rdev(struct inode *inode, struct f2fs_inode *ri)

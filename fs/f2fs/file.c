@@ -381,7 +381,7 @@ static bool __found_offset(struct f2fs_sb_info *sbi, block_t blkaddr,
 	switch (whence) {
 	case SEEK_DATA:
 		if ((blkaddr == NEW_ADDR && dirty == pgofs) ||
-			is_valid_data_blkaddr(sbi, blkaddr))
+			is_valid_blkaddr(blkaddr))
 			return true;
 		break;
 	case SEEK_HOLE:
