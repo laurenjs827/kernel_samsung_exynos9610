@@ -2227,77 +2227,9 @@ void f2fs_quota_off_umount(struct super_block *sb)
 				"Fail to turn off disk quota "
 				"(type: %d, err: %d, ret:%d), Please "
 				"run fsck to fix it.", type, err, ret);
-			set_sbi_flag(F2FS_SB(sb), SBI_QUOTA_NEED_REPAIR);
+			set_sbi_flag(F2FS_SB(sb), SBI_NEED_FSCK);
 		}
 	}
-}
-
-static void f2fs_truncate_quota_inode_pages(struct super_block *sb)
-{
-	struct quota_info *dqopt = sb_dqopt(sb);
-	int type;
-
-	for (type = 0; type < MAXQUOTAS; type++) {
-		if (!dqopt->files[type])
-			continue;
-		f2fs_inode_synced(dqopt->files[type]);
-	}
-}
-
-static int f2fs_dquot_commit(struct dquot *dquot)
-{
-	int ret;
-
-	ret = dquot_commit(dquot);
-	if (ret < 0)
-		set_sbi_flag(F2FS_SB(dquot->dq_sb), SBI_QUOTA_NEED_REPAIR);
-	return ret;
-}
-
-static int f2fs_dquot_acquire(struct dquot *dquot)
-{
-	int ret;
-
-	ret = dquot_acquire(dquot);
-	if (ret < 0)
-		set_sbi_flag(F2FS_SB(dquot->dq_sb), SBI_QUOTA_NEED_REPAIR);
-
-	return ret;
-}
-
-static int f2fs_dquot_release(struct dquot *dquot)
-{
-	int ret;
-
-	ret = dquot_release(dquot);
-	if (ret < 0)
-		set_sbi_flag(F2FS_SB(dquot->dq_sb), SBI_QUOTA_NEED_REPAIR);
-	return ret;
-}
-
-static int f2fs_dquot_mark_dquot_dirty(struct dquot *dquot)
-{
-	struct super_block *sb = dquot->dq_sb;
-	struct f2fs_sb_info *sbi = F2FS_SB(sb);
-	int ret;
-
-	ret = dquot_mark_dquot_dirty(dquot);
-
-	/* if we are using journalled quota */
-	if (is_journalled_quota(sbi))
-		set_sbi_flag(sbi, SBI_QUOTA_NEED_FLUSH);
-
-	return ret;
-}
-
-static int f2fs_dquot_commit_info(struct super_block *sb, int type)
-{
-	int ret;
-
-	ret = dquot_commit_info(sb, type);
-	if (ret < 0)
-		set_sbi_flag(F2FS_SB(sb), SBI_QUOTA_NEED_REPAIR);
-	return ret;
 }
 
 static int f2fs_get_projid(struct inode *inode, kprojid_t *projid)
