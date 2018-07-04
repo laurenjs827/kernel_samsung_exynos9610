@@ -1772,7 +1772,24 @@ int f2fs_flush_inline_data(struct f2fs_sb_info *sbi)
 		for (i = 0; i < nr_pages; i++) {
 			struct page *page = pvec.pages[i];
 
-			if (!IS_DNODE(page))
+			/*
+			 * flushing sequence with step:
+			 * 0. indirect nodes
+			 * 1. dentry dnodes
+			 * 2. file dnodes
+			 */
+			if (step == 0 && IS_DNODE(page))
+				continue;
+			if (step == 1 && (!IS_DNODE(page) ||
+						is_cold_node(page)))
+				continue;
+			if (step == 2 && (!IS_DNODE(page) ||
+						!is_cold_node(page)))
+				continue;
+lock_node:
+			if (wbc->sync_mode == WB_SYNC_ALL)
+				lock_page(page);
+			else if (!trylock_page(page))
 				continue;
 
 			lock_page(page);
