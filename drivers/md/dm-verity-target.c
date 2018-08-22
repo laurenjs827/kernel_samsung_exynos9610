@@ -102,10 +102,38 @@ static int verity_hash_update(struct dm_verity *v, struct shash_desc *desc,
 {
 	int r = crypto_shash_update(desc, data, len);
 
-	if (unlikely(r < 0))
-		DMERR("crypto_shash_update failed: %d", r);
+	if (unlikely(ret < 0))
+		DMERR("verity_wait_hash: crypto op failed: %d", ret);
 
-	return r;
+	return ret;
+}
+
+static int verity_hash_update(struct dm_verity *v, struct ahash_request *req,
+				const u8 *data, size_t len,
+				struct verity_result *res)
+{
+	struct scatterlist sg;
+
+	if (likely(!is_vmalloc_addr(data))) {
+		sg_init_one(&sg, data, len);
+		ahash_request_set_crypt(req, &sg, NULL, len);
+		return verity_complete_op(res, crypto_ahash_update(req));
+	} else {
+		do {
+			int r;
+			size_t this_step = min_t(size_t, len, PAGE_SIZE - offset_in_page(data));
+			flush_kernel_vmap_range((void *)data, this_step);
+			sg_init_table(&sg, 1);
+			sg_set_page(&sg, vmalloc_to_page(data), this_step, offset_in_page(data));
+			ahash_request_set_crypt(req, &sg, NULL, this_step);
+			r = verity_complete_op(res, crypto_ahash_update(req));
+			if (unlikely(r))
+				return r;
+			data += this_step;
+			len -= this_step;
+		} while (len);
+		return 0;
+	}
 }
 
 /*
