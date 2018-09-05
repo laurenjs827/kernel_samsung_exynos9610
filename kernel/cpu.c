@@ -681,16 +681,16 @@ static void cpuhp_thread_fun(unsigned int cpu)
 	bool bringup = st->bringup;
 	enum cpuhp_state state;
 
+	if (WARN_ON_ONCE(!st->should_run))
+		return;
+
 	/*
 	 * ACQUIRE for the cpuhp_should_run() load of ->should_run. Ensures
 	 * that if we see ->should_run we also see the rest of the state.
 	 */
 	smp_mb();
 
-	if (WARN_ON_ONCE(!st->should_run))
-		return;
-
-	lock_map_acquire(&cpuhp_state_lock_map);
+	cpuhp_lock_acquire(bringup);
 
 	if (st->single) {
 		state = st->cb_state;
