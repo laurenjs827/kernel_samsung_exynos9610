@@ -2057,7 +2057,6 @@ static inline int udp4_csum_init(struct sk_buff *skb, struct udphdr *uh,
 	 */
 	err = (__force int)skb_checksum_init_zero_check(skb, proto, uh->check,
 							inet_compute_pseudo);
-
 	if (err)
 		return err;
 
@@ -2070,7 +2069,7 @@ static inline int udp4_csum_init(struct sk_buff *skb, struct udphdr *uh,
 		 * skb->csum is no longer the full packet checksum,
 		 * so don't treat it as such.
 		 */
-		 skb_checksum_complete_unset(skb);
+		skb_checksum_complete_unset(skb);
 	}
 
 	return 0;
