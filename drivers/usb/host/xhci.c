@@ -695,7 +695,6 @@ static void xhci_stop(struct usb_hcd *hcd)
 	mutex_lock(&xhci->mutex);
 	/* Only halt host and free memory after both hcds are removed */
 	if (!usb_hcd_is_primary_hcd(hcd)) {
-		/* usb core will free this hcd shortly, unset pointer */
 		mutex_unlock(&xhci->mutex);
 		return;
 	}
