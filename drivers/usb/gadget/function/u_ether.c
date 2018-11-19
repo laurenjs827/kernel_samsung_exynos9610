@@ -451,12 +451,7 @@ static void rx_fill(struct eth_dev *dev, gfp_t gfp_flags)
 	/* fill unused rxq slots with some skb */
 	spin_lock_irqsave(&dev->req_lock, flags);
 	while (!list_empty(&dev->rx_reqs)) {
-		/* break the nexus of continuous completion and re-submission*/
-		if (++req_cnt > qlen(dev->gadget, dev->qmult))
-			break;
-
-		req = container_of(dev->rx_reqs.next,
-				struct usb_request, list);
+		req = list_first_entry(&dev->rx_reqs, struct usb_request, list);
 		list_del_init(&req->list);
 		spin_unlock_irqrestore(&dev->req_lock, flags);
 
@@ -1587,8 +1582,7 @@ EXPORT_SYMBOL_GPL(gether_connect);
 void gether_disconnect(struct gether *link)
 {
 	struct eth_dev		*dev = link->ioport;
-//	struct usb_request	*req;
-	struct sk_buff		*skb;
+	struct usb_request	*req;
 
 	WARN_ON(!dev);
 	if (!dev)
@@ -1612,8 +1606,7 @@ void gether_disconnect(struct gether *link)
 #if 0
 	spin_lock(&dev->req_lock);
 	while (!list_empty(&dev->tx_reqs)) {
-		req = container_of(dev->tx_reqs.next,
-					struct usb_request, list);
+		req = list_first_entry(&dev->tx_reqs, struct usb_request, list);
 		list_del(&req->list);
 
 		spin_unlock(&dev->req_lock);
@@ -1630,8 +1623,7 @@ void gether_disconnect(struct gether *link)
 	usb_ep_disable(link->out_ep);
 	spin_lock(&dev->req_lock);
 	while (!list_empty(&dev->rx_reqs)) {
-		req = container_of(dev->rx_reqs.next,
-					struct usb_request, list);
+		req = list_first_entry(&dev->rx_reqs, struct usb_request, list);
 		list_del(&req->list);
 
 		spin_unlock(&dev->req_lock);
