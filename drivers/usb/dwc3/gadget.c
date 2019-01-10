@@ -3987,13 +3987,7 @@ int dwc3_gadget_init(struct dwc3 *dwc)
 		goto err4;
 	}
 
-	if (dwc->dotg) {
-		ret = otg_set_peripheral(&dwc->dotg->otg, &dwc->gadget);
-		if (ret) {
-			dev_err(dwc->dev, "failed to set otg peripheral\n");
-			goto err4;
-		}
-	}
+	dwc3_gadget_set_speed(&dwc->gadget, dwc->maximum_speed);
 
 	return 0;
 
