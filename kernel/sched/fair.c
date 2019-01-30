@@ -6282,6 +6282,7 @@ next_cpu:
 
 #ifdef CONFIG_SCHED_SMT
 DEFINE_STATIC_KEY_FALSE(sched_smt_present);
+EXPORT_SYMBOL_GPL(sched_smt_present);
 
 #ifdef DEBUG_EENV_DECISIONS
 static void dump_eenv_debug(struct energy_env *eenv)
