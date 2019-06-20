@@ -3823,17 +3823,5 @@ extern void f2fs_build_fault_attr(struct f2fs_sb_info *sbi, unsigned int rate,
 #define f2fs_build_fault_attr(sbi, rate, type)		do { } while (0)
 #endif
 
-#endif
-
-static inline bool is_journalled_quota(struct f2fs_sb_info *sbi)
-{
-#ifdef CONFIG_QUOTA
-	if (f2fs_sb_has_quota_ino(sbi->sb))
-		return true;
-	if (F2FS_OPTION(sbi).s_qf_names[USRQUOTA] ||
-		F2FS_OPTION(sbi).s_qf_names[GRPQUOTA] ||
-		F2FS_OPTION(sbi).s_qf_names[PRJQUOTA])
-		return true;
-#endif
-	return false;
-}
+#define EFSBADCRC	EBADMSG		/* Bad CRC detected */
+#define EFSCORRUPTED	EUCLEAN		/* Filesystem is corrupted */
