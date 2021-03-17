@@ -1,0 +1,25 @@
+name: C/C++ CI
+
+on:
+  push:
+    branches: [ 11.0 ]
+  pull_request:
+    branches: [ 11.0 ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: configure
+      run: export PLATFORM_VERSION=11
+    - name: android version
+      run: export ANDROID_MAJOR_VERSION=r
+    - name: arch
+      run: export ARCH=arm64
+    - name: make defconfig
+      run: make exynos9610-m30sdd_defconfig
+    - name: make kernel
+      run: make -j64
