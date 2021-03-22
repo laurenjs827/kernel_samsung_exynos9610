@@ -1,0 +1,6 @@
+--- There's some Samsung specific code in init/main.c which caused a conflict in
+    setting up jump_labels initialisation.. ---
+    commit under observation: 'Upstream commit 6041186a32585fc7a1d0f6cfe2f138b05fdc3c82'
+
+--- Changes in TTY drivers in Samsung
+    Commit file in question: drivers/tty/serial/samsung.c
